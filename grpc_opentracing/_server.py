@@ -132,7 +132,17 @@ class OpenTracingServerInterceptor(grpcext.UnaryServerInterceptor,
         _add_peer_tags(servicer_context.peer(), tags)
         span = self._tracer.start_span(
             operation_name=method, child_of=span_context, tags=tags)
+
+        # add the tags also as span context baggage items
+        for key, value in tags.items():
+            span.set_baggage_item(key, value)
+
+        span.set_baggage_item("operation_name", method)
+
+        # align the scope manager of the grpc context with the openTracing module.
+        # this enables the rook to access it with the existing implementation
         opentracing.tracer.scope_manager.activate(span, True)
+
         if error is not None:
             span.log_kv({'event': 'error', 'error.object': error})
         return span
